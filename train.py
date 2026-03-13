@@ -546,7 +546,7 @@ optimizer = model.setup_optimizer(
     weight_decay=WEIGHT_DECAY,
 )
 
-model = torch.compile(model, dynamic=False)
+model = torch.compile(model, dynamic=False) if USE_FLASH_ATTENTION else model
 
 train_loader = make_dataloader(tokenizer, DEVICE_BATCH_SIZE, MAX_SEQ_LEN, "train")
 x, y, epoch = next(train_loader)  # prefetch first batch
@@ -609,7 +609,7 @@ while True:
 
     # Fast fail: abort if loss is exploding or NaN
     if math.isnan(train_loss_f) or train_loss_f > 100:
-        print("FAIL")
+        print(f"\nFAIL: loss={train_loss_f} (NaN={math.isnan(train_loss_f)}, >100={train_loss_f > 100})")
         exit(1)
 
     torch.cuda.synchronize()
