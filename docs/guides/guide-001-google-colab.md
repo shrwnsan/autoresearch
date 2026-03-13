@@ -25,21 +25,16 @@ This guide explains how to run autoresearch experiments on Google Colab's free t
 In Cell 1, replace `YOUR_USERNAME` with your GitHub username:
 
 ```python
-!git clone -b feat/google-colab https://github.com/YOUR_USERNAME/autoresearch.git
+repo_url = "https://github.com/YOUR_USERNAME/autoresearch.git"
 ```
 
 ### 4. Run All
 
 Click Runtime → Run all (or Ctrl+F9)
 
-### 5. Pull Updates (If Re-running)
-
-If you need to get the latest code changes, add this cell and run it before training:
-
-```python
-%cd /content/autoresearch
-!git pull
-```
+The notebook automatically handles:
+- Fresh clone (first run)
+- Git pull (subsequent runs if repo already exists)
 
 ## What to Expect
 
