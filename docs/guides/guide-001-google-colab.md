@@ -107,6 +107,53 @@ You should be able to run **6-10 experiments** in one session before hitting lim
 - Colab Pro (longer sessions, better GPUs)
 - A dedicated GPU (local or cloud)
 
+## Checking Usage Limits
+
+Unfortunately, **Google Colab free tier has no official quota dashboard**. The limits are opaque by design. Here's what you *can* check:
+
+### What You Can See
+
+**In Colab UI (limited):**
+Click the RAM/Disk meter (top right) — you may see current session info and sometimes a vague "compute availability" message.
+
+**Run this in a Colab cell:**
+
+```python
+# Check GPU assignment
+!nvidia-smi --query-gpu=name,memory.total --format=csv
+
+# Check current time (session start time is not exposed)
+import time
+print(f"Current time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+```
+
+### What You Cannot See
+
+| Info | Free Tier | Paid (Pro/Pro+) |
+|------|-----------|-----------------|
+| Hours used today | ❌ | ✅ (Compute Units) |
+| Hours remaining | ❌ | ✅ |
+| Session time left | ❌ | ✅ |
+| Daily/weekly quota | ❌ | ✅ |
+
+### Signs You're Hitting Limits
+
+Since there's no visibility, watch for these warning signs:
+
+1. **"GPU unavailable"** when connecting to runtime
+2. **Slower GPU assignment** (waiting in queue)
+3. **Session terminates early** without warning
+4. **Can't reconnect** to GPU runtime
+
+If this happens, wait a few hours or until the next day for quota reset.
+
+### Paid Tiers for Visibility
+
+| Tier | Price | Benefit |
+|------|-------|---------|
+| Colab Pro | $10/mo | ~100 compute units, visible quota |
+| Colab Pro+ | $50/mo | ~500 compute units, priority access |
+
 ## Reconnecting After Disconnect
 
 If Colab disconnects:
