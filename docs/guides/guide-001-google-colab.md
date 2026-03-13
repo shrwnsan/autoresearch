@@ -44,6 +44,40 @@ Click Runtime → Run all (or Ctrl+F9)
 
 **Total time: ~8-11 minutes**
 
+## What Each Step Actually Does
+
+### Step 1: Clone Repository
+
+Downloads your fork with T4-optimized `train.py` containing reduced model size and batch sizes.
+
+### Step 2: Install Dependencies
+
+Installs:
+- **uv** — Fast Python package manager
+- **PyTorch 2.9.1** with CUDA 12.8 support
+- **Flash Attention kernels** — Fast attention implementation
+- **Other libs** — numpy, tiktoken, rustbpe, etc.
+
+### Step 3: Prepare Data (~2 min)
+
+- Downloads **training data shards** from HuggingFace (climbmix-400b dataset — a shuffled mix of web text)
+- Trains a **BPE tokenizer** with vocab size 8192
+- Caches everything to `~/.cache/autoresearch/` for reuse in future runs
+
+### Step 4: Train Model (~5 min)
+
+- Builds a **GPT-style transformer** (~12M parameters, 4 layers)
+- Trains for exactly **5 minutes wall-clock time**
+- Uses **MuonAdamW optimizer** (Muon for matrices, AdamW for embeddings)
+- Processes approximately **100 million tokens**
+- Evaluates on validation data and outputs **val_bpb**
+
+### Step 5: Show Results
+
+Displays `results.tsv` — the experiment log tracking all runs.
+
+## Understanding the Output
+
 ### Training Output
 
 During training, you'll see a progress line like:
@@ -51,6 +85,18 @@ During training, you'll see a progress line like:
 ```
 step 00042 (8.3%) | loss: 2.145678 | lrm: 1.00 | dt: 7123ms | tok/sec: 9,170 | mfu: 12.3% | epoch: 0 | remaining: 275s
 ```
+
+| Metric | Meaning |
+|--------|---------|
+| `step` | Optimizer update count |
+| `(8.3%)` | Progress through 5-minute budget |
+| `loss` | Current training loss (lower = better) |
+| `lrm` | Learning rate multiplier |
+| `dt` | Time per step in milliseconds |
+| `tok/sec` | Tokens processed per second |
+| `mfu` | Model FLOPs utilization (efficiency) |
+| `epoch` | Pass through training data |
+| `remaining` | Seconds left in time budget |
 
 ### Final Summary
 
@@ -69,7 +115,107 @@ num_params_M:     12.5
 depth:            4
 ```
 
-The key metric is **val_bpb** (validation bits per byte) — lower is better.
+| Metric | Meaning |
+|--------|---------|
+| `val_bpb` | **Validation bits per byte** — key metric, lower = better model |
+| `training_seconds` | Actual training time (target: 300s) |
+| `total_seconds` | Including startup and evaluation |
+| `peak_vram_mb` | Max GPU memory used (T4 has 16,384 MB) |
+| `mfu_percent` | Model FLOPs utilization — how efficiently you're using the GPU |
+| `total_tokens_M` | Total tokens processed (millions) |
+| `num_steps` | Optimizer updates performed |
+| `num_params_M` | Model parameter count (millions) |
+| `depth` | Number of transformer layers |
+
+The **key metric is `val_bpb`** (validation bits per byte) — lower is better. This measures how well the model predicts held-out data, independent of vocabulary size.
+
+## How This Benefits You
+
+### 1. Establishes a Baseline
+
+You get a starting `val_bpb` score — your **reference point** for future experiments.
+
+```
+Baseline: val_bpb = 1.234567
+```
+
+Any changes to `train.py` will be measured against this.
+
+### 2. Validates Your Setup Works
+
+Confirms:
+- ✅ T4 GPU is accessible and functional
+- ✅ VRAM is sufficient (no OOM errors)
+- ✅ Flash Attention kernel works on T4
+- ✅ Training completes within time budget
+
+### 3. Ready for Autonomous Research
+
+Once the baseline works, you can:
+- Let an AI agent (Claude Code, etc.) modify `train.py`
+- Run experiments in a loop automatically
+- Track improvements in `results.tsv`
+
+Example experiment log after several runs:
+
+```
+commit      val_bpb    memory_gb  status   description
+a1b2c3d     1.234567   8.0        keep     baseline
+b2c3d4e     1.198234   8.1        keep     increase learning rate to 0.05
+c3d4e5f     1.245000   8.0        discard  add dropout (worse)
+d4e5f6g     1.182000   8.2        keep     reduce depth to 3, widen layers
+```
+
+### 4. Understanding ML Training Dynamics
+
+You observe real training behavior:
+- Loss decreasing over time
+- Throughput (tokens/second)
+- GPU efficiency (MFU)
+- Memory usage patterns
+
+## What This Does NOT Do (Yet)
+
+| Not Included | How to Enable |
+|--------------|---------------|
+| Multiple experiments in a loop | Point Claude Code at `program.md` for autonomous research |
+| Model checkpointing | Not in baseline; agent can add this |
+| Text generation/sampling | Evaluation only; inference not included |
+| Comparison to others | Results are hardware-specific (T4 vs H100) |
+| TensorBoard logging | Can be added by modifying `train.py` |
+
+## Next Steps After Successful Run
+
+### Option 1: Manual Experimentation
+
+Edit `train.py` directly to try different:
+- Learning rates
+- Model sizes (depth, width)
+- Batch sizes
+- Optimizer settings
+
+Then re-run and compare `val_bpb`.
+
+### Option 2: Autonomous Research
+
+Point an AI coding agent (Claude Code, etc.) at this repo with `program.md`. The agent will:
+
+1. Read `program.md` for instructions
+2. Propose changes to `train.py`
+3. Run experiments
+4. Keep improvements, discard failures
+5. Repeat indefinitely
+
+This is the core "autoresearch" concept — AI doing its own ML research while you sleep.
+
+### Option 3: Analyze Results
+
+Review `results.tsv` to understand what worked:
+
+```bash
+# Sort by val_bpb to find best experiment
+!cat results.tsv | sort -t$'\t' -k2 -n
+```
 
 ## T4-Optimized Settings
 
