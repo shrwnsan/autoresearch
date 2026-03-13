@@ -31,10 +31,10 @@ else:
     print(f"Flash Attention not supported on this GPU (compute {cap[0]}.{cap[1]}), using PyTorch SDPA fallback")
 
 # bfloat16 requires Ampere+ (compute capability >= 8.0)
-# Fall back to float16 on older GPUs like T4
-DTYPE = torch.bfloat16 if cap >= (8, 0) else torch.float16
-if DTYPE == torch.float16:
-    print(f"bfloat16 not supported on this GPU (compute {cap[0]}.{cap[1]}), using float16")
+# Fall back to float32 on older GPUs like T4 (float16 is unstable for this training)
+DTYPE = torch.bfloat16 if cap >= (8, 0) else torch.float32
+if DTYPE == torch.float32:
+    print(f"bfloat16 not supported on this GPU (compute {cap[0]}.{cap[1]}), using float32 (slower but stable)")
 
 from prepare import MAX_SEQ_LEN, TIME_BUDGET, Tokenizer, make_dataloader, evaluate_bpb
 
