@@ -481,6 +481,9 @@ FINAL_LR_FRAC = 0.0     # final LR as fraction of initial
 DEPTH = 4               # number of transformer layers (reduced for T4)
 DEVICE_BATCH_SIZE = 16  # per-device batch size (reduced for T4 VRAM)
 
+# LR scaling for float16 (less stable than bfloat16)
+LR_SCALE_FP16 = 0.5  # Reduce LRs by half when using float16
+
 # ---------------------------------------------------------------------------
 # Setup: tokenizer, model, optimizer, dataloader
 # ---------------------------------------------------------------------------
@@ -537,12 +540,17 @@ tokens_per_fwdbwd = DEVICE_BATCH_SIZE * MAX_SEQ_LEN
 assert TOTAL_BATCH_SIZE % tokens_per_fwdbwd == 0
 grad_accum_steps = TOTAL_BATCH_SIZE // tokens_per_fwdbwd
 
+# Apply LR scaling for float16 (less stable than bfloat16)
+lr_scale = LR_SCALE_FP16 if DTYPE == torch.float16 else 1.0
+if lr_scale != 1.0:
+    print(f"Using float16 LR scaling: {lr_scale}")
+
 optimizer = model.setup_optimizer(
-    unembedding_lr=UNEMBEDDING_LR,
-    embedding_lr=EMBEDDING_LR,
-    scalar_lr=SCALAR_LR,
+    unembedding_lr=UNEMBEDDING_LR * lr_scale,
+    embedding_lr=EMBEDDING_LR * lr_scale,
+    scalar_lr=SCALAR_LR * lr_scale,
     adam_betas=ADAM_BETAS,
-    matrix_lr=MATRIX_LR,
+    matrix_lr=MATRIX_LR * lr_scale,
     weight_decay=WEIGHT_DECAY,
 )
 
@@ -602,6 +610,11 @@ while True:
         if group['kind'] == 'muon':
             group["momentum"] = muon_momentum
             group["weight_decay"] = muon_weight_decay
+    
+    # Gradient clipping for numerical stability (especially important for float16)
+    if DTYPE == torch.float16:
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+    
     optimizer.step()
     model.zero_grad(set_to_none=True)
 
