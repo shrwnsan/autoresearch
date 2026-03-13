@@ -495,16 +495,19 @@ torch.set_float32_matmul_precision("high")
 device = torch.device("cuda")
 autocast_ctx = torch.amp.autocast(device_type="cuda", dtype=DTYPE)
 
-# Peak FLOPS for MFU calculation (GPU-specific)
+# Peak FLOPS for MFU calculation (GPU-specific and dtype-specific)
 gpu_name = torch.cuda.get_device_name(0)
 if "H100" in gpu_name:
     PEAK_FLOPS = 989.5e12  # H100 BF16
 elif "A100" in gpu_name:
     PEAK_FLOPS = 312e12   # A100 BF16
 elif "T4" in gpu_name:
-    PEAK_FLOPS = 65e12    # T4 FP16
+    if DTYPE == torch.float32:
+        PEAK_FLOPS = 8.1e12   # T4 FP32
+    else:
+        PEAK_FLOPS = 65e12    # T4 FP16
 else:
-    PEAK_FLOPS = 65e12    # Conservative default
+    PEAK_FLOPS = 8.1e12    # Conservative default for older GPUs
 
 tokenizer = Tokenizer.from_directory()
 vocab_size = tokenizer.get_vocab_size()
